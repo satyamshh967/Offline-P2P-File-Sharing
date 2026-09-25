@@ -8,12 +8,14 @@ import { TransferManager } from './components/TransferManager';
 import { FileDropzoneModal } from './components/FileDropzoneModal';
 import { EncryptionModal } from './components/EncryptionModal';
 import { DirectConnectModal } from './components/DirectConnectModal';
+import { ShareModal } from './components/ShareModal';
+import { FileDetailsPanel } from './components/FileDetailsPanel';
+import { TransferWidget } from './components/TransferWidget';
 import { WebRTCManager } from './services/webrtc';
 import { signalingService } from './services/signaling';
 import { Device, Transfer, SharedFileItem } from './types';
-import { Zap, ArrowUpRight, ArrowDownLeft } from 'lucide-react';
+import { UploadCloud } from 'lucide-react';
 
-// Generate consistent device info
 const getDeviceInfo = (): Device => {
   let id = localStorage.getItem('fileup_device_id');
   if (!id) {
@@ -46,15 +48,20 @@ const getDeviceInfo = (): Device => {
 
 export const App: React.FC = () => {
   const [localDevice] = useState<Device>(getDeviceInfo());
-  const [currentTab, setCurrentTab] = useState<string>('files');
+  const [currentTab, setCurrentTab] = useState<string>('my-drive');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [isSignalingConnected, setIsSignalingConnected] = useState<boolean>(false);
   const [isEncrypted, setIsEncrypted] = useState<boolean>(true);
+
+  // Selected file and inspector panel
+  const [selectedFile, setSelectedFile] = useState<SharedFileItem | null>(null);
+  const [isInfoPanelOpen, setIsInfoPanelOpen] = useState<boolean>(false);
 
   // Modals
   const [isUploadModalOpen, setIsUploadModalOpen] = useState<boolean>(false);
   const [isEncryptionModalOpen, setIsEncryptionModalOpen] = useState<boolean>(false);
   const [isDirectConnectOpen, setIsDirectConnectOpen] = useState<boolean>(false);
+  const [shareFileTarget, setShareFileTarget] = useState<SharedFileItem | null>(null);
 
   // Discovered Peers
   const [devices, setDevices] = useState<Device[]>([]);
@@ -65,7 +72,10 @@ export const App: React.FC = () => {
   const [transfers, setTransfers] = useState<Transfer[]>([]);
   const [totalTransferredBytes, setTotalTransferredBytes] = useState<number>(0);
 
-  // Sample files matching Reference 2 & Reference 1
+  // Drag-and-drop overlay
+  const [isWindowDragging, setIsWindowDragging] = useState<boolean>(false);
+
+  // Sample files matching Google Drive and reference layout
   const [files, setFiles] = useState<SharedFileItem[]>([
     {
       id: 'f-1',
@@ -149,11 +159,14 @@ export const App: React.FC = () => {
     }
   ]);
 
-  // WebRTC Manager reference
   const rtcManagerRef = useRef<WebRTCManager | null>(null);
 
   useEffect(() => {
-    // Instantiate WebRTC Manager
+    // Select first file by default for details view
+    if (files.length > 0 && !selectedFile) {
+      setSelectedFile(files[0]);
+    }
+
     const rtc = new WebRTCManager(localDevice.id, (updatedTransfer) => {
       setTransfers((prev) => {
         const index = prev.findIndex((t) => t.id === updatedTransfer.id);
@@ -166,14 +179,12 @@ export const App: React.FC = () => {
         }
       });
 
-      // Track total transferred bytes
       if (updatedTransfer.status === 'completed') {
         setTotalTransferredBytes((bytes) => bytes + updatedTransfer.fileSize);
-        // Trigger celebratory confetti on download complete!
         if (updatedTransfer.direction === 'download') {
           confetti({
-            particleCount: 80,
-            spread: 60,
+            particleCount: 90,
+            spread: 70,
             origin: { y: 0.7 }
           });
         }
@@ -181,8 +192,6 @@ export const App: React.FC = () => {
     });
 
     rtcManagerRef.current = rtc;
-
-    // Connect Signaling Service
     signalingService.connect(localDevice);
 
     const unsubStatus = signalingService.on('connection-status', (status: any) => {
@@ -194,7 +203,6 @@ export const App: React.FC = () => {
       setDevices(activePeers);
     });
 
-    // Initial peer fetch
     signalingService.fetchPeers(localDevice.id).then((peers) => {
       if (peers && peers.length > 0) {
         setDevices(peers);
@@ -208,7 +216,27 @@ export const App: React.FC = () => {
     };
   }, [localDevice]);
 
-  // Refresh discovered devices
+  // Handle Full Window Drag & Drop (Google Drive style)
+  const handleWindowDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsWindowDragging(true);
+  };
+
+  const handleWindowDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    if (e.relatedTarget === null) {
+      setIsWindowDragging(false);
+    }
+  };
+
+  const handleWindowDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsWindowDragging(false);
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      setIsUploadModalOpen(true);
+    }
+  };
+
   const handleRefreshDevices = async () => {
     setIsScanning(true);
     const peers = await signalingService.fetchPeers(localDevice.id);
@@ -216,7 +244,6 @@ export const App: React.FC = () => {
     setTimeout(() => setIsScanning(false), 800);
   };
 
-  // Toggle selection for multi-device broadcast
   const handleToggleSelectDevice = (deviceId: string) => {
     setSelectedDeviceIds((prev) =>
       prev.includes(deviceId) ? prev.filter((id) => id !== deviceId) : [...prev, deviceId]
@@ -231,40 +258,33 @@ export const App: React.FC = () => {
     }
   };
 
-  // Send direct to a device clicked from radar
   const handleSendToDevice = (device: Device) => {
     setSelectedDeviceIds([device.id]);
     setIsUploadModalOpen(true);
   };
 
-  // Send a specific file from the grid
-  const handleSendFileFromGrid = (fileItem: SharedFileItem) => {
-    if (devices.length === 0) {
-      alert('No peers discovered yet! Open FILEUP on another device or tab.');
-      return;
-    }
-
-    // If file has raw fileObj, use it; otherwise create synthetic blob file for demonstration
-    let rawFile = fileItem.fileObj;
-    if (!rawFile) {
-      const sampleBlob = new Blob([`FILEUP P2P Content for ${fileItem.name} - Verified SHA-256`], { type: fileItem.type });
-      rawFile = new File([sampleBlob], fileItem.name, { type: fileItem.type });
-    }
-
-    const targetPeerIds = selectedDeviceIds.length > 0 ? selectedDeviceIds : [devices[0].id];
-    rtcManagerRef.current?.sendFile(rawFile, targetPeerIds, isEncrypted);
-    setCurrentTab('transfers');
+  // Google Drive Share Action
+  const handleOpenShare = (file: SharedFileItem) => {
+    setShareFileTarget(file);
   };
 
-  // Start transfer from modal
+  const handleSendToPeersFromShareModal = (file: SharedFileItem, peerIds: string[], encrypted: boolean) => {
+    let rawFile = file.fileObj;
+    if (!rawFile) {
+      const sampleBlob = new Blob([`Drive P2P content for ${file.name} - Verified SHA-256`], { type: file.type });
+      rawFile = new File([sampleBlob], file.name, { type: file.type });
+    }
+    rtcManagerRef.current?.sendFile(rawFile, peerIds, encrypted);
+  };
+
+  // Upload modal handler
   const handleStartTransfer = async (stagedFiles: File[], targetPeerIds: string[], useCompression: boolean) => {
     if (!rtcManagerRef.current) return;
 
     for (let file of stagedFiles) {
-      // Optional Python compression service integration
       if (useCompression) {
         try {
-          const res = await fetch('http://localhost:5000/compress', {
+          const res = await fetch('http://127.0.0.1:5000/compress', {
             method: 'POST',
             body: file,
             headers: { 'X-Compression-Level': '6' }
@@ -280,7 +300,6 @@ export const App: React.FC = () => {
 
       await rtcManagerRef.current.sendFile(file, targetPeerIds, isEncrypted);
 
-      // Add to shared files list
       const ext = file.name.split('.').pop()?.toUpperCase() || 'FILE';
       const newItem: SharedFileItem = {
         id: `f-${Date.now()}`,
@@ -295,15 +314,15 @@ export const App: React.FC = () => {
       };
       setFiles((prev) => [newItem, ...prev]);
     }
-
-    setCurrentTab('transfers');
   };
 
   const handleDeleteFile = (fileId: string) => {
     setFiles((prev) => prev.filter((f) => f.id !== fileId));
+    if (selectedFile?.id === fileId) {
+      setSelectedFile(null);
+    }
   };
 
-  // Pause / Resume / Cancel handlers
   const handlePauseTransfer = (id: string) => rtcManagerRef.current?.pauseTransfer(id);
   const handleResumeTransfer = (id: string) => rtcManagerRef.current?.resumeTransfer(id);
   const handleCancelTransfer = (id: string) => rtcManagerRef.current?.cancelTransfer(id);
@@ -319,12 +338,25 @@ export const App: React.FC = () => {
     }
   };
 
-  // Find active transfer for the top banner (Reference 1 style)
-  const activeBannerTransfer = transfers.find((t) => t.status === 'transferring');
-
   return (
-    <div className="flex h-screen overflow-hidden bg-[#f8fafc]">
-      {/* Sidebar (matching Reference 2) */}
+    <div 
+      onDragOver={handleWindowDragOver}
+      onDragLeave={handleWindowDragLeave}
+      onDrop={handleWindowDrop}
+      className="flex h-screen overflow-hidden bg-[#f8fafc] relative font-['Plus_Jakarta_Sans',sans-serif]"
+    >
+      {/* Google Drive Full Window Drag Overlay */}
+      {isWindowDragging && (
+        <div className="absolute inset-0 z-50 bg-blue-600/10 backdrop-blur-xs border-4 border-dashed border-blue-500 m-4 rounded-3xl flex flex-col items-center justify-center pointer-events-none animate-in fade-in duration-150">
+          <div className="w-20 h-20 rounded-3xl bg-blue-600 text-white flex items-center justify-center shadow-2xl mb-4">
+            <UploadCloud className="w-10 h-10 animate-bounce" />
+          </div>
+          <h2 className="text-2xl font-black text-slate-800">Drop files to instantly share via Offline P2P</h2>
+          <p className="text-sm text-slate-500 mt-1">Files will be cached in IndexedDB and ready to stream to nearby devices</p>
+        </div>
+      )}
+
+      {/* Google Drive Sidebar with Custom User Logo */}
       <Sidebar
         currentTab={currentTab}
         setCurrentTab={setCurrentTab}
@@ -336,9 +368,9 @@ export const App: React.FC = () => {
         totalTransferredBytes={totalTransferredBytes}
       />
 
-      {/* Main Content Area */}
+      {/* Main Drive Workspace */}
       <div className="flex-1 flex flex-col h-screen overflow-hidden">
-        {/* Top Header */}
+        {/* Google Drive Header */}
         <Header
           localDevice={localDevice}
           searchQuery={searchQuery}
@@ -348,77 +380,86 @@ export const App: React.FC = () => {
           openEncryptionModal={() => setIsEncryptionModalOpen(true)}
           openDirectConnectModal={() => setIsDirectConnectOpen(true)}
           openUploadModal={() => setIsUploadModalOpen(true)}
+          toggleInfoPanel={() => setIsInfoPanelOpen(!isInfoPanelOpen)}
+          isInfoPanelOpen={isInfoPanelOpen}
         />
 
-        {/* Top Active Upload Progress Banner (Matching Reference 1 exactly: DAILY_UI_31_File_upload.xd 72%) */}
-        {activeBannerTransfer && (
-          <div className="bg-blue-50/70 border-b border-blue-100 px-8 py-2.5 flex items-center justify-between text-xs transition-all animate-in slide-in-from-top-2">
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="w-6 h-6 rounded bg-purple-700 text-white font-bold text-[9px] flex items-center justify-center uppercase shrink-0">
-                {activeBannerTransfer.fileName.split('.').pop()?.substring(0, 2) || 'XD'}
-              </div>
-              <div className="min-w-0">
-                <span className="font-bold text-slate-800 mr-2 truncate">
-                  {activeBannerTransfer.fileName}
-                </span>
-                <span className="text-slate-400">
-                  {(activeBannerTransfer.transferredChunks * 64 / 1024).toFixed(1)}MB of {(activeBannerTransfer.fileSize / (1024 * 1024)).toFixed(1)}MB
-                </span>
-              </div>
+        {/* Content & Details Split View */}
+        <div className="flex-1 flex overflow-hidden">
+          <main className="flex-1 overflow-y-auto p-6 lg:p-8">
+            <div className="max-w-7xl mx-auto">
+              {currentTab === 'computers' && (
+                <DeviceRadar
+                  devices={devices}
+                  selectedDeviceIds={selectedDeviceIds}
+                  onToggleSelectDevice={handleToggleSelectDevice}
+                  onSelectAllDevices={handleSelectAllDevices}
+                  onSendToDevice={handleSendToDevice}
+                  onRefreshDevices={handleRefreshDevices}
+                  isScanning={isScanning}
+                />
+              )}
+
+              {currentTab === 'transfers' && (
+                <TransferManager
+                  transfers={transfers}
+                  onPause={handlePauseTransfer}
+                  onResume={handleResumeTransfer}
+                  onCancel={handleCancelTransfer}
+                  onDownload={handleDownloadTransfer}
+                />
+              )}
+
+              {currentTab !== 'computers' && currentTab !== 'transfers' && (
+                <FileGrid
+                  files={files}
+                  currentTab={currentTab}
+                  onSelectFile={(f) => {
+                    setSelectedFile(f);
+                    setIsInfoPanelOpen(true);
+                  }}
+                  selectedFile={selectedFile}
+                  onShareFile={handleOpenShare}
+                  onDeleteFile={handleDeleteFile}
+                  searchQuery={searchQuery}
+                />
+              )}
             </div>
+          </main>
 
-            <div className="flex items-center gap-4 shrink-0">
-              <span className="font-extrabold text-blue-700 text-sm">
-                {activeBannerTransfer.progressPercent}%
-              </span>
-              <button
-                onClick={() => setCurrentTab('transfers')}
-                className="text-blue-600 hover:text-blue-800 font-bold underline cursor-pointer text-xs"
-              >
-                View
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Scrollable View Container */}
-        <main className="flex-1 overflow-y-auto p-8">
-          <div className="max-w-7xl mx-auto">
-            {currentTab === 'radar' && (
-              <DeviceRadar
-                devices={devices}
-                selectedDeviceIds={selectedDeviceIds}
-                onToggleSelectDevice={handleToggleSelectDevice}
-                onSelectAllDevices={handleSelectAllDevices}
-                onSendToDevice={handleSendToDevice}
-                onRefreshDevices={handleRefreshDevices}
-                isScanning={isScanning}
-              />
-            )}
-
-            {currentTab === 'transfers' && (
-              <TransferManager
-                transfers={transfers}
-                onPause={handlePauseTransfer}
-                onResume={handleResumeTransfer}
-                onCancel={handleCancelTransfer}
-                onDownload={handleDownloadTransfer}
-              />
-            )}
-
-            {currentTab !== 'radar' && currentTab !== 'transfers' && (
-              <FileGrid
-                files={files.filter((f) => currentTab === 'files' || f.folderCategory === currentTab)}
-                onSendFile={handleSendFileFromGrid}
-                onDeleteFile={handleDeleteFile}
-                searchQuery={searchQuery}
-              />
-            )}
-          </div>
-        </main>
+          {/* Google Drive Right Details / Activity Inspector */}
+          {isInfoPanelOpen && selectedFile && (
+            <FileDetailsPanel
+              isOpen={isInfoPanelOpen}
+              onClose={() => setIsInfoPanelOpen(false)}
+              file={selectedFile}
+              onShare={handleOpenShare}
+              onDelete={handleDeleteFile}
+            />
+          )}
+        </div>
       </div>
 
-      {/* Modals */}
+      {/* Google Drive Bottom-Right Floating Transfer Widget */}
+      <TransferWidget
+        transfers={transfers}
+        onPause={handlePauseTransfer}
+        onResume={handleResumeTransfer}
+        onCancel={handleCancelTransfer}
+        onDownload={handleDownloadTransfer}
+      />
+
+      {/* Google Drive Share Modal */}
+      <ShareModal
+        isOpen={!!shareFileTarget}
+        onClose={() => setShareFileTarget(null)}
+        file={shareFileTarget}
+        devices={devices}
+        onSendToPeers={handleSendToPeersFromShareModal}
+        isEncrypted={isEncrypted}
+      />
+
+      {/* Upload Modal */}
       <FileDropzoneModal
         isOpen={isUploadModalOpen}
         onClose={() => setIsUploadModalOpen(false)}
@@ -429,6 +470,7 @@ export const App: React.FC = () => {
         isEncrypted={isEncrypted}
       />
 
+      {/* Security & Settings Modal */}
       <EncryptionModal
         isOpen={isEncryptionModalOpen}
         onClose={() => setIsEncryptionModalOpen(false)}
@@ -436,6 +478,7 @@ export const App: React.FC = () => {
         setIsEncrypted={setIsEncrypted}
       />
 
+      {/* Direct Connect QR Modal */}
       <DirectConnectModal
         isOpen={isDirectConnectOpen}
         onClose={() => setIsDirectConnectOpen(false)}
