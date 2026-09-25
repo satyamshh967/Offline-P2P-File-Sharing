@@ -1,0 +1,14 @@
+{
+  "name": "p2p-file-sharing-server",
+  "version": "1.0.0",
+  "description": "Offline-First WebRTC Signaling and Local Discovery Server",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.19.2",
+    "ws": "^8.18.0"
+  }
+}

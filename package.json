@@ -1,0 +1,23 @@
+{
+  "name": "offline-first-peer-to-peer-file-sharing-system",
+  "version": "1.0.0",
+  "description": "Offline-First Peer-to-Peer File Sharing System using WebRTC, Node.js Signaling, UDP Discovery, and Python Compression",
+  "scripts": {
+    "start:server": "node server/src/server.js",
+    "start:client": "npm.cmd --prefix client run dev",
+    "start:compression": "python python-compression/compression_service.py",
+    "test:compression": "python python-compression/test_compression.py",
+    "test:e2e": "node scripts/test-p2p.js"
+  },
+  "keywords": [
+    "webrtc",
+    "p2p",
+    "file-sharing",
+    "offline-first",
+    "e2ee",
+    "resumable-transfers",
+    "udp-discovery"
+  ],
+  "author": "Antigravity",
+  "license": "MIT"
+}
