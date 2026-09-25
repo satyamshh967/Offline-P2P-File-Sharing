@@ -11,7 +11,8 @@ import {
   Unlock, 
   Wifi, 
   WifiOff,
-  Info
+  Info,
+  Camera
 } from 'lucide-react';
 import { Device } from '../types';
 
@@ -24,6 +25,8 @@ interface HeaderProps {
   openEncryptionModal: () => void;
   openDirectConnectModal: () => void;
   openUploadModal: () => void;
+  openQRModal?: () => void;
+  openQRScanner?: () => void;
   toggleInfoPanel?: () => void;
   isInfoPanelOpen?: boolean;
 }
@@ -36,6 +39,8 @@ export const Header: React.FC<HeaderProps> = ({
   isEncrypted,
   openEncryptionModal,
   openDirectConnectModal,
+  openQRModal,
+  openQRScanner,
   toggleInfoPanel,
   isInfoPanelOpen
 }) => {
@@ -86,14 +91,28 @@ export const Header: React.FC<HeaderProps> = ({
           {isEncrypted ? <Lock className="w-4 h-4" /> : <Unlock className="w-4 h-4" />}
         </button>
 
-        {/* LAN Direct Connect QR */}
-        <button
-          onClick={openDirectConnectModal}
-          title="Connect via IP or Direct Code"
-          className="p-2 rounded-full bg-white hover:bg-slate-100 text-slate-600 border border-slate-200 transition-colors cursor-pointer"
-        >
-          <QrCode className="w-4 h-4" />
-        </button>
+        {/* Show My Device QR */}
+        {openQRModal && (
+          <button
+            onClick={openQRModal}
+            title="Show Device Pairing QR Code"
+            className="p-2 rounded-full bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 transition-colors cursor-pointer"
+          >
+            <QrCode className="w-4 h-4 text-blue-600" />
+          </button>
+        )}
+
+        {/* Scan QR Code Button */}
+        {openQRScanner && (
+          <button
+            onClick={openQRScanner}
+            title="Scan QR Code to Receive File"
+            className="px-3 py-1.5 rounded-full bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200/80 transition-colors cursor-pointer flex items-center gap-1.5 text-xs font-bold"
+          >
+            <Camera className="w-3.5 h-3.5" />
+            <span className="hidden md:inline">Scan QR</span>
+          </button>
+        )}
 
         {/* Info Panel Toggle `(i)` (Google Drive inspector) */}
         {toggleInfoPanel && (

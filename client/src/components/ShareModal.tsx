@@ -13,7 +13,8 @@ import {
   Lock, 
   Globe,
   Share2,
-  Copy
+  Copy,
+  QrCode
 } from 'lucide-react';
 import { Device, SharedFileItem } from '../types';
 
@@ -23,6 +24,7 @@ interface ShareModalProps {
   file: SharedFileItem | null;
   devices: Device[];
   onSendToPeers: (file: SharedFileItem, peerIds: string[], isEncrypted: boolean) => void;
+  onOpenQR?: (file: SharedFileItem) => void;
   isEncrypted: boolean;
 }
 
@@ -32,6 +34,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
   file,
   devices,
   onSendToPeers,
+  onOpenQR,
   isEncrypted: defaultEncrypted
 }) => {
   const [selectedPeers, setSelectedPeers] = useState<string[]>([]);
@@ -224,16 +227,32 @@ export const ShareModal: React.FC<ShareModalProps> = ({
           </div>
         </div>
 
-        {/* Google Drive Footer: Copy Link & Send Button */}
+        {/* Google Drive Footer: Copy Link, QR Code & Send Button */}
         <div className="p-4 px-6 border-t border-slate-100 bg-slate-50 flex items-center justify-between">
-          <button
-            type="button"
-            onClick={handleCopyLink}
-            className="px-3.5 py-2 rounded-xl bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 font-bold text-xs flex items-center gap-2 transition-colors cursor-pointer"
-          >
-            {copiedLink ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5 text-slate-500" />}
-            <span>{copiedLink ? 'Link copied!' : 'Copy offline link'}</span>
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleCopyLink}
+              className="px-3.5 py-2 rounded-xl bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 font-bold text-xs flex items-center gap-2 transition-colors cursor-pointer"
+            >
+              {copiedLink ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5 text-slate-500" />}
+              <span>{copiedLink ? 'Link copied!' : 'Copy link'}</span>
+            </button>
+
+            {onOpenQR && (
+              <button
+                type="button"
+                onClick={() => {
+                  onOpenQR(file);
+                  onClose();
+                }}
+                className="px-3.5 py-2 rounded-xl bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 text-indigo-700 font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <QrCode className="w-3.5 h-3.5" />
+                <span>Show QR</span>
+              </button>
+            )}
+          </div>
 
           <div className="flex items-center gap-2">
             <button

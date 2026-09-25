@@ -11,6 +11,8 @@ import { DirectConnectModal } from './components/DirectConnectModal';
 import { ShareModal } from './components/ShareModal';
 import { FileDetailsPanel } from './components/FileDetailsPanel';
 import { TransferWidget } from './components/TransferWidget';
+import { QRCodeModal } from './components/QRCodeModal';
+import { QRScannerModal } from './components/QRScannerModal';
 import { WebRTCManager } from './services/webrtc';
 import { signalingService } from './services/signaling';
 import { Device, Transfer, SharedFileItem } from './types';
@@ -62,6 +64,9 @@ export const App: React.FC = () => {
   const [isEncryptionModalOpen, setIsEncryptionModalOpen] = useState<boolean>(false);
   const [isDirectConnectOpen, setIsDirectConnectOpen] = useState<boolean>(false);
   const [shareFileTarget, setShareFileTarget] = useState<SharedFileItem | null>(null);
+  const [isQRModalOpen, setIsQRModalOpen] = useState<boolean>(false);
+  const [qrFileTarget, setQrFileTarget] = useState<SharedFileItem | null>(null);
+  const [isQRScannerOpen, setIsQRScannerOpen] = useState<boolean>(false);
 
   // Discovered Peers
   const [devices, setDevices] = useState<Device[]>([]);
@@ -268,6 +273,22 @@ export const App: React.FC = () => {
     setShareFileTarget(file);
   };
 
+  const handleOpenQRModal = (file?: SharedFileItem | null) => {
+    setQrFileTarget(file || null);
+    setIsQRModalOpen(true);
+  };
+
+  const handleQRScanned = async (result: { peerId?: string; fileId?: string; fileName?: string; fileSize?: number; rawUrl: string }) => {
+    if (result.peerId) {
+      setCurrentTab('transfers');
+      if (result.fileName) {
+        alert(`Connecting to ${result.peerId} to receive "${result.fileName}"...`);
+      } else {
+        alert(`Connected to device ${result.peerId} via QR scan!`);
+      }
+    }
+  };
+
   const handleSendToPeersFromShareModal = (file: SharedFileItem, peerIds: string[], encrypted: boolean) => {
     let rawFile = file.fileObj;
     if (!rawFile) {
@@ -362,6 +383,8 @@ export const App: React.FC = () => {
         setCurrentTab={setCurrentTab}
         openUploadModal={() => setIsUploadModalOpen(true)}
         openEncryptionModal={() => setIsEncryptionModalOpen(true)}
+        openQRModal={() => handleOpenQRModal(null)}
+        openQRScanner={() => setIsQRScannerOpen(true)}
         discoveredCount={devices.length}
         activeTransfersCount={transfers.filter((t) => t.status === 'transferring').length}
         isEncrypted={isEncrypted}
@@ -380,6 +403,8 @@ export const App: React.FC = () => {
           openEncryptionModal={() => setIsEncryptionModalOpen(true)}
           openDirectConnectModal={() => setIsDirectConnectOpen(true)}
           openUploadModal={() => setIsUploadModalOpen(true)}
+          openQRModal={() => handleOpenQRModal(null)}
+          openQRScanner={() => setIsQRScannerOpen(true)}
           toggleInfoPanel={() => setIsInfoPanelOpen(!isInfoPanelOpen)}
           isInfoPanelOpen={isInfoPanelOpen}
         />
@@ -456,7 +481,24 @@ export const App: React.FC = () => {
         file={shareFileTarget}
         devices={devices}
         onSendToPeers={handleSendToPeersFromShareModal}
+        onOpenQR={(file) => handleOpenQRModal(file)}
         isEncrypted={isEncrypted}
+      />
+
+      {/* Direct QR Code Generation Modal */}
+      <QRCodeModal
+        isOpen={isQRModalOpen}
+        onClose={() => setIsQRModalOpen(false)}
+        localDevice={localDevice}
+        file={qrFileTarget}
+        isEncrypted={isEncrypted}
+      />
+
+      {/* Live QR Camera Scanner Modal */}
+      <QRScannerModal
+        isOpen={isQRScannerOpen}
+        onClose={() => setIsQRScannerOpen(false)}
+        onScanned={handleQRScanned}
       />
 
       {/* Upload Modal */}

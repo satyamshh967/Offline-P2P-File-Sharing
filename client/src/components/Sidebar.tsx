@@ -15,7 +15,9 @@ import {
   Upload,
   FolderPlus,
   Archive,
-  ChevronDown
+  ChevronDown,
+  Camera,
+  QrCode
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -23,6 +25,8 @@ interface SidebarProps {
   setCurrentTab: (tab: string) => void;
   openUploadModal: () => void;
   openEncryptionModal: () => void;
+  openQRModal?: () => void;
+  openQRScanner?: () => void;
   discoveredCount: number;
   activeTransfersCount: number;
   isEncrypted: boolean;
@@ -34,6 +38,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   setCurrentTab,
   openUploadModal,
   openEncryptionModal,
+  openQRModal,
+  openQRScanner,
   discoveredCount,
   activeTransfersCount,
   isEncrypted,
@@ -125,6 +131,31 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     <span>Folder upload</span>
                   </button>
                   <div className="my-1 border-t border-slate-100"></div>
+                  {openQRScanner && (
+                    <button
+                      onClick={() => {
+                        setIsNewMenuOpen(false);
+                        openQRScanner();
+                      }}
+                      className="w-full px-4 py-2.5 text-left text-xs font-semibold text-slate-700 hover:bg-blue-50 hover:text-blue-700 flex items-center gap-3 transition-colors cursor-pointer"
+                    >
+                      <Camera className="w-4 h-4 text-indigo-600" />
+                      <span>Scan QR to receive file</span>
+                    </button>
+                  )}
+                  {openQRModal && (
+                    <button
+                      onClick={() => {
+                        setIsNewMenuOpen(false);
+                        openQRModal();
+                      }}
+                      className="w-full px-4 py-2.5 text-left text-xs font-semibold text-slate-700 hover:bg-blue-50 hover:text-blue-700 flex items-center gap-3 transition-colors cursor-pointer"
+                    >
+                      <QrCode className="w-4 h-4 text-blue-600" />
+                      <span>Show pairing QR code</span>
+                    </button>
+                  )}
+                  <div className="my-1 border-t border-slate-100"></div>
                   <button
                     onClick={() => {
                       setIsNewMenuOpen(false);
@@ -132,7 +163,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     }}
                     className="w-full px-4 py-2.5 text-left text-xs font-semibold text-slate-700 hover:bg-blue-50 hover:text-blue-700 flex items-center gap-3 transition-colors cursor-pointer"
                   >
-                    <Radio className="w-4 h-4 text-indigo-600" />
+                    <Radio className="w-4 h-4 text-emerald-600" />
                     <span>Scan nearby devices</span>
                   </button>
                 </div>
