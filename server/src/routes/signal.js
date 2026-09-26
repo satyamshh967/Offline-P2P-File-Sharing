@@ -5,7 +5,7 @@ const discovery = require('../discovery');
 
 // Register device via REST
 router.post('/register', (req, res) => {
-  const { id, name, type, browser, os } = req.body;
+  const { id, name, type, browser, os, user } = req.body;
   if (!id) {
     return res.status(400).json({ error: 'Device id is required' });
   }
@@ -15,6 +15,7 @@ router.post('/register', (req, res) => {
     type: type || 'desktop',
     browser: browser || 'Unknown',
     os: os || 'Unknown',
+    user: user || null,
     ip: req.ip || req.connection.remoteAddress
   });
   return res.json({ success: true, device });

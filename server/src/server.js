@@ -3,6 +3,7 @@ const http = require('http');
 const cors = require('cors');
 const { WebSocketServer } = require('ws');
 const signalRoutes = require('./routes/signal');
+const authRoutes = require('./routes/auth');
 const store = require('./store');
 const discovery = require('./discovery');
 
@@ -23,7 +24,8 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// REST signaling routes
+// Auth & Signaling routes
+app.use('/api/auth', authRoutes);
 app.use('/signal', signalRoutes);
 
 const server = http.createServer(app);

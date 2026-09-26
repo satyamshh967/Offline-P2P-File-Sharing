@@ -13,9 +13,11 @@ import { FileDetailsPanel } from './components/FileDetailsPanel';
 import { TransferWidget } from './components/TransferWidget';
 import { QRCodeModal } from './components/QRCodeModal';
 import { QRScannerModal } from './components/QRScannerModal';
+import { AuthModal } from './components/AuthModal';
 import { WebRTCManager } from './services/webrtc';
 import { signalingService } from './services/signaling';
-import { Device, Transfer, SharedFileItem } from './types';
+import { authService } from './services/auth';
+import { Device, Transfer, SharedFileItem, User } from './types';
 import { UploadCloud } from 'lucide-react';
 
 const getDeviceInfo = (): Device => {
@@ -58,6 +60,11 @@ export const App: React.FC = () => {
   // Selected file and inspector panel
   const [selectedFile, setSelectedFile] = useState<SharedFileItem | null>(null);
   const [isInfoPanelOpen, setIsInfoPanelOpen] = useState<boolean>(false);
+
+  // Authentication State
+  const [currentUser, setCurrentUser] = useState<User | null>(authService.getCurrentUser());
+  const [isGuest, setIsGuest] = useState<boolean>(authService.isGuest());
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(!authService.isAuthenticated());
 
   // Modals
   const [isUploadModalOpen, setIsUploadModalOpen] = useState<boolean>(false);
@@ -196,7 +203,24 @@ export const App: React.FC = () => {
       }
     });
 
-    rtcManagerRef.current = rtc;
+    const unsubAuth = authService.subscribe((newUser, guest) => {
+      setCurrentUser(newUser);
+      setIsGuest(guest);
+      if (newUser) {
+        localDevice.user = newUser;
+        localDevice.name = `${newUser.name} (${localDevice.os})`;
+        signalingService.send({
+          type: 'register',
+          device: localDevice
+        });
+      }
+    });
+
+    if (currentUser) {
+      localDevice.user = currentUser;
+      localDevice.name = `${currentUser.name} (${localDevice.os})`;
+    }
+
     signalingService.connect(localDevice);
 
     const unsubStatus = signalingService.on('connection-status', (status: any) => {
@@ -215,6 +239,7 @@ export const App: React.FC = () => {
     });
 
     return () => {
+      unsubAuth();
       unsubStatus();
       unsubPeers();
       signalingService.disconnect();
@@ -407,6 +432,13 @@ export const App: React.FC = () => {
           openQRScanner={() => setIsQRScannerOpen(true)}
           toggleInfoPanel={() => setIsInfoPanelOpen(!isInfoPanelOpen)}
           isInfoPanelOpen={isInfoPanelOpen}
+          user={currentUser}
+          isGuest={isGuest}
+          onLogout={() => {
+            authService.logout();
+            setIsAuthModalOpen(true);
+          }}
+          onOpenAuth={() => setIsAuthModalOpen(true)}
         />
 
         {/* Content & Details Split View */}
@@ -525,6 +557,17 @@ export const App: React.FC = () => {
         isOpen={isDirectConnectOpen}
         onClose={() => setIsDirectConnectOpen(false)}
         localIp="127.0.0.1"
+      />
+
+      {/* Google-Style Authentication Modal */}
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        canDismiss={currentUser !== null}
+        onSuccess={(user) => {
+          setCurrentUser(user);
+          setIsAuthModalOpen(false);
+        }}
+        onClose={() => setIsAuthModalOpen(false)}
       />
     </div>
   );

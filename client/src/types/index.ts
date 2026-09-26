@@ -1,5 +1,14 @@
 export type DeviceType = 'desktop' | 'mobile' | 'tablet';
 
+export interface User {
+  id: string;
+  username: string;
+  name: string;
+  email: string;
+  avatarColor: string;
+  createdAt?: number;
+}
+
 export interface Device {
   id: string;
   name: string;
@@ -10,6 +19,7 @@ export interface Device {
   status: 'online' | 'busy' | 'offline';
   lastSeen?: number;
   isSelected?: boolean;
+  user?: User | null;
 }
 
 export type TransferStatus = 'pending' | 'transferring' | 'paused' | 'completed' | 'failed';

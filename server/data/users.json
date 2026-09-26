@@ -1,0 +1,22 @@
+[
+  {
+    "id": "usr_568ae125d4216f40",
+    "username": "satyam",
+    "name": "Satyam Sharma",
+    "email": "satyam@offline.p2p",
+    "salt": "0b237072321c57701921ffd0b6296ab5",
+    "hash": "15c2fcf73c952e47b85cf100b8c26dfd870c7f12c442dff05d02576a893d08257583683eb7c3eabf6a157f40bceab03d6afb6f8c7b24503f8bc0297d8dd81d81",
+    "avatarColor": "#2563eb",
+    "createdAt": 1790398892161
+  },
+  {
+    "id": "usr_8f8e384c105d39d2",
+    "username": "user_31364",
+    "name": "Test Student",
+    "email": "user_31364@school.edu",
+    "salt": "86da30b03e7c842f1f49773e0de43ef4",
+    "hash": "d0db700126d04a90679702655627c6239b64ab9c1445693006a195c8fefea4076f2a5d9bfba74948ea7d6deda1f02685d576c3f65bee388be85ff513b4339352",
+    "avatarColor": "#10b981",
+    "createdAt": 1790399831379
+  }
+]
