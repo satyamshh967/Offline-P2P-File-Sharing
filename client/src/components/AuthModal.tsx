@@ -258,6 +258,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 onClick={() => {
                   setIsRegister(true);
                   setError('');
+                  setUsername('');
+                  setName('');
+                  setEmail('');
+                  setPassword('');
+                  setConfirmPassword('');
                 }}
                 className="font-bold text-blue-600 hover:text-blue-800 cursor-pointer"
               >
