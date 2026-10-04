@@ -14,7 +14,7 @@ import hashlib
 import io
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
-PORT = 5000
+PORT = int(os.environ.get('PORT', 5050))
 
 class CompressionHandler(BaseHTTPRequestHandler):
     def _set_headers(self, status=200, content_type='application/json'):
