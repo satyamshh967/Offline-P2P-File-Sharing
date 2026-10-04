@@ -28,5 +28,15 @@
     "hash": "c9342661576a37304b978dcc0df5bd187176d447ad7df4b374adfa5d952d5138168fff0199ed0aa8af56e159d21f57cdec8bb7b8786e30c28e8d8d8518297050",
     "avatarColor": "#10b981",
     "createdAt": 1790488925247
+  },
+  {
+    "id": "usr_f8c34ed0ad5383a3",
+    "username": "testuser",
+    "name": "testuser",
+    "email": "test@drivep2p.local",
+    "salt": "2a2a6dc3c7311c776de4e8674aee1d97",
+    "hash": "4b51da1582e66e98afd32b8d6e0adf6964335ccadd814f84dfb5277b89bd33ccf3314699ba65ee6a3c8c3f59d0cbf004adb080441d20f69ac40072c5959b7b14",
+    "avatarColor": "#2563eb",
+    "createdAt": 1791115832329
   }
 ]

@@ -14,6 +14,8 @@ import { TransferWidget } from './components/TransferWidget';
 import { QRCodeModal } from './components/QRCodeModal';
 import { QRScannerModal } from './components/QRScannerModal';
 import { AuthModal } from './components/AuthModal';
+import { HelpSupportModal } from './components/HelpSupportModal';
+import { ToastContainer, ToastMessage, ToastType } from './components/Toast';
 import { WebRTCManager } from './services/webrtc';
 import { signalingService } from './services/signaling';
 import { authService } from './services/auth';
@@ -54,12 +56,31 @@ export const App: React.FC = () => {
   const [localDevice] = useState<Device>(getDeviceInfo());
   const [currentTab, setCurrentTab] = useState<string>('my-drive');
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [activeFilter, setActiveFilter] = useState<string>('all');
   const [isSignalingConnected, setIsSignalingConnected] = useState<boolean>(false);
   const [isEncrypted, setIsEncrypted] = useState<boolean>(true);
 
   // Selected file and inspector panel
   const [selectedFile, setSelectedFile] = useState<SharedFileItem | null>(null);
   const [isInfoPanelOpen, setIsInfoPanelOpen] = useState<boolean>(false);
+
+  // Mobile Drawer State (Item 3 & 20)
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
+
+  // Toast Notification System (Item 12 & 13)
+  const [toasts, setToasts] = useState<ToastMessage[]>([]);
+
+  const addToast = (type: ToastType, title: string, message?: string) => {
+    const id = `t-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+    setToasts((prev) => [...prev, { id, type, title, message }]);
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 4500);
+  };
+
+  const dismissToast = (id: string) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  };
 
   // Authentication State
   const [currentUser, setCurrentUser] = useState<User | null>(authService.getCurrentUser());
@@ -74,6 +95,7 @@ export const App: React.FC = () => {
   const [isQRModalOpen, setIsQRModalOpen] = useState<boolean>(false);
   const [qrFileTarget, setQrFileTarget] = useState<SharedFileItem | null>(null);
   const [isQRScannerOpen, setIsQRScannerOpen] = useState<boolean>(false);
+  const [isHelpModalOpen, setIsHelpModalOpen] = useState<boolean>(false);
 
   // Discovered Peers
   const [devices, setDevices] = useState<Device[]>([]);
@@ -87,7 +109,7 @@ export const App: React.FC = () => {
   // Drag-and-drop overlay
   const [isWindowDragging, setIsWindowDragging] = useState<boolean>(false);
 
-  // Sample files matching Google Drive and reference layout
+  // Files with star and trash support (Item 15)
   const [files, setFiles] = useState<SharedFileItem[]>([
     {
       id: 'f-1',
@@ -97,7 +119,8 @@ export const App: React.FC = () => {
       extension: 'XD',
       uploadedAt: '22 hours ago',
       badgeColor: 'bg-purple-600',
-      folderCategory: 'design'
+      folderCategory: 'design',
+      isStarred: true
     },
     {
       id: 'f-2',
@@ -137,7 +160,8 @@ export const App: React.FC = () => {
       extension: 'DOC',
       uploadedAt: '12.07.2026',
       badgeColor: 'bg-blue-500',
-      folderCategory: 'files'
+      folderCategory: 'files',
+      isStarred: true
     },
     {
       id: 'f-6',
@@ -173,8 +197,25 @@ export const App: React.FC = () => {
 
   const rtcManagerRef = useRef<WebRTCManager | null>(null);
 
+  // Item 5: Dynamic Document Title
   useEffect(() => {
-    // Select first file by default for details view
+    const activeTransfers = transfers.filter((t) => t.status === 'transferring').length;
+    let pageName = 'My Drive';
+    if (currentTab === 'computers') pageName = 'Nearby Devices';
+    else if (currentTab === 'transfers') pageName = 'Transfers';
+    else if (currentTab === 'starred') pageName = 'Starred';
+    else if (currentTab === 'trash') pageName = 'Trash';
+    else if (currentTab === 'shared') pageName = 'Shared with me';
+    else if (currentTab === 'recent') pageName = 'Recent';
+
+    if (activeTransfers > 0) {
+      document.title = `(${activeTransfers}) Syncing - ${pageName} - Drive P2P`;
+    } else {
+      document.title = `${pageName} - Drive P2P`;
+    }
+  }, [currentTab, transfers]);
+
+  useEffect(() => {
     if (files.length > 0 && !selectedFile) {
       setSelectedFile(files[0]);
     }
@@ -193,6 +234,11 @@ export const App: React.FC = () => {
 
       if (updatedTransfer.status === 'completed') {
         setTotalTransferredBytes((bytes) => bytes + updatedTransfer.fileSize);
+        addToast(
+          'success',
+          'Transfer Complete',
+          `"${updatedTransfer.fileName}" finished transfer successfully.`
+        );
         if (updatedTransfer.direction === 'download') {
           confetti({
             particleCount: 90,
@@ -200,8 +246,16 @@ export const App: React.FC = () => {
             origin: { y: 0.7 }
           });
         }
+      } else if (updatedTransfer.status === 'failed') {
+        addToast(
+          'error',
+          'Transfer Interrupted',
+          `Failed transferring "${updatedTransfer.fileName}": ${updatedTransfer.error || 'Connection lost'}`
+        );
       }
     });
+
+    rtcManagerRef.current = rtc;
 
     const unsubAuth = authService.subscribe((newUser, guest) => {
       setCurrentUser(newUser);
@@ -213,6 +267,7 @@ export const App: React.FC = () => {
           type: 'register',
           device: localDevice
         });
+        addToast('success', 'Logged In', `Active as ${newUser.name}`);
       }
     });
 
@@ -225,6 +280,11 @@ export const App: React.FC = () => {
 
     const unsubStatus = signalingService.on('connection-status', (status: any) => {
       setIsSignalingConnected(status.connected);
+      if (status.connected) {
+        addToast('success', 'Signaling Connected', 'Local discovery & WebRTC coordination online.');
+      } else {
+        addToast('error', 'Signaling Reconnecting', 'Attempting offline mesh reconnection...');
+      }
     });
 
     const unsubPeers = signalingService.on('peer-list', (data: any) => {
@@ -246,7 +306,7 @@ export const App: React.FC = () => {
     };
   }, [localDevice]);
 
-  // Handle Full Window Drag & Drop (Google Drive style)
+  // Handle Full Window Drag & Drop
   const handleWindowDragOver = (e: React.DragEvent) => {
     e.preventDefault();
     setIsWindowDragging(true);
@@ -271,7 +331,10 @@ export const App: React.FC = () => {
     setIsScanning(true);
     const peers = await signalingService.fetchPeers(localDevice.id);
     setDevices(peers);
-    setTimeout(() => setIsScanning(false), 800);
+    setTimeout(() => {
+      setIsScanning(false);
+      addToast('info', 'Discovery Scan Complete', `Found ${peers.length} active device(s) on subnet.`);
+    }, 800);
   };
 
   const handleToggleSelectDevice = (deviceId: string) => {
@@ -307,10 +370,12 @@ export const App: React.FC = () => {
     if (result.peerId) {
       setCurrentTab('transfers');
       if (result.fileName) {
-        alert(`Connecting to ${result.peerId} to receive "${result.fileName}"...`);
+        addToast('success', 'QR Code Paired', `Connecting to ${result.peerId} to receive "${result.fileName}"...`);
       } else {
-        alert(`Connected to device ${result.peerId} via QR scan!`);
+        addToast('success', 'Device Paired', `Connected to device ${result.peerId} via QR scan.`);
       }
+    } else {
+      addToast('error', 'Invalid QR Code', 'The scanned QR code is not recognized as a Drive P2P token.');
     }
   };
 
@@ -321,16 +386,17 @@ export const App: React.FC = () => {
       rawFile = new File([sampleBlob], file.name, { type: file.type });
     }
     rtcManagerRef.current?.sendFile(rawFile, peerIds, encrypted);
+    addToast('success', 'Transfer Initiated', `Streaming "${file.name}" to ${peerIds.length} peer(s).`);
   };
 
-  // Upload modal handler
+  // Upload modal handler with relative proxy support
   const handleStartTransfer = async (stagedFiles: File[], targetPeerIds: string[], useCompression: boolean) => {
     if (!rtcManagerRef.current) return;
 
     for (let file of stagedFiles) {
       if (useCompression) {
         try {
-          const res = await fetch('http://127.0.0.1:5000/compress', {
+          const res = await fetch('/compression/compress', {
             method: 'POST',
             body: file,
             headers: { 'X-Compression-Level': '6' }
@@ -338,6 +404,7 @@ export const App: React.FC = () => {
           if (res.ok) {
             const compressedBlob = await res.blob();
             file = new File([compressedBlob], `${file.name}.gz`, { type: 'application/gzip' });
+            addToast('info', 'Microservice Compressed', `Optimized "${file.name}" using gzip.`);
           }
         } catch (e) {
           console.warn('[Python Compression] Service offline, sending uncompressed:', e);
@@ -359,14 +426,62 @@ export const App: React.FC = () => {
         fileObj: file
       };
       setFiles((prev) => [newItem, ...prev]);
+      addToast('success', 'File Staged', `"${file.name}" is ready and streaming.`);
+    }
+  };
+
+  // Star & Trash handlers (Item 15)
+  const handleToggleStar = (fileId: string) => {
+    setFiles((prev) =>
+      prev.map((f) => (f.id === fileId ? { ...f, isStarred: !f.isStarred } : f))
+    );
+    const target = files.find((f) => f.id === fileId);
+    if (target) {
+      addToast(
+        'info',
+        target.isStarred ? 'Removed from Starred' : 'Added to Starred',
+        `"${target.name}"`
+      );
     }
   };
 
   const handleDeleteFile = (fileId: string) => {
-    setFiles((prev) => prev.filter((f) => f.id !== fileId));
+    setFiles((prev) =>
+      prev.map((f) => (f.id === fileId ? { ...f, isDeleted: true } : f))
+    );
     if (selectedFile?.id === fileId) {
       setSelectedFile(null);
     }
+    addToast('info', 'Moved to Trash', 'File can be recovered from Trash anytime.');
+  };
+
+  const handleRestoreFile = (fileId: string) => {
+    setFiles((prev) =>
+      prev.map((f) => (f.id === fileId ? { ...f, isDeleted: false } : f))
+    );
+    addToast('success', 'Restored File', 'File is back in My Drive.');
+  };
+
+  const handlePermanentDelete = (fileId: string) => {
+    setFiles((prev) => prev.filter((f) => f.id !== fileId));
+    addToast('info', 'Deleted Permanently', 'Item purged from offline storage.');
+  };
+
+  const handleDownloadFile = (file: SharedFileItem) => {
+    let url = '';
+    if (file.fileObj) {
+      url = URL.createObjectURL(file.fileObj);
+    } else {
+      const blob = new Blob([`Drive P2P payload for ${file.name}`], { type: file.type });
+      url = URL.createObjectURL(blob);
+    }
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = file.name;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    addToast('success', 'Export Started', `Downloading "${file.name}" to your device.`);
   };
 
   const handlePauseTransfer = (id: string) => rtcManagerRef.current?.pauseTransfer(id);
@@ -381,6 +496,7 @@ export const App: React.FC = () => {
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
+      addToast('success', 'Download Complete', `Saved "${transfer.fileName}" locally.`);
     }
   };
 
@@ -389,9 +505,12 @@ export const App: React.FC = () => {
       onDragOver={handleWindowDragOver}
       onDragLeave={handleWindowDragLeave}
       onDrop={handleWindowDrop}
-      className="flex h-screen overflow-hidden bg-[#f8fafc] relative font-['Plus_Jakarta_Sans',sans-serif]"
+      className="flex h-screen overflow-hidden bg-[#f8fafc] relative font-['Plus_Jakarta_Sans',sans-serif] w-screen max-w-full"
     >
-      {/* Google Drive Full Window Drag Overlay */}
+      {/* Toast Notifications */}
+      <ToastContainer toasts={toasts} onDismiss={dismissToast} />
+
+      {/* Google Drive Drag Overlay */}
       {isWindowDragging && (
         <div className="absolute inset-0 z-50 bg-blue-600/10 backdrop-blur-xs border-4 border-dashed border-blue-500 m-4 rounded-3xl flex flex-col items-center justify-center pointer-events-none animate-in fade-in duration-150">
           <div className="w-20 h-20 rounded-3xl bg-blue-600 text-white flex items-center justify-center shadow-2xl mb-4">
@@ -402,7 +521,7 @@ export const App: React.FC = () => {
         </div>
       )}
 
-      {/* Google Drive Sidebar with Custom User Logo */}
+      {/* Google Drive Responsive Sidebar Drawer (Item 3, 17, 20) */}
       <Sidebar
         currentTab={currentTab}
         setCurrentTab={setCurrentTab}
@@ -410,15 +529,18 @@ export const App: React.FC = () => {
         openEncryptionModal={() => setIsEncryptionModalOpen(true)}
         openQRModal={() => handleOpenQRModal(null)}
         openQRScanner={() => setIsQRScannerOpen(true)}
+        openHelpModal={() => setIsHelpModalOpen(true)}
         discoveredCount={devices.length}
         activeTransfersCount={transfers.filter((t) => t.status === 'transferring').length}
         isEncrypted={isEncrypted}
         totalTransferredBytes={totalTransferredBytes}
+        isMobileOpen={isMobileMenuOpen}
+        onCloseMobile={() => setIsMobileMenuOpen(false)}
       />
 
       {/* Main Drive Workspace */}
-      <div className="flex-1 flex flex-col h-screen overflow-hidden">
-        {/* Google Drive Header */}
+      <div className="flex-1 flex flex-col h-screen overflow-hidden min-w-0">
+        {/* Google Drive Header (Item 3, 11, 16) */}
         <Header
           localDevice={localDevice}
           searchQuery={searchQuery}
@@ -430,6 +552,8 @@ export const App: React.FC = () => {
           openUploadModal={() => setIsUploadModalOpen(true)}
           openQRModal={() => handleOpenQRModal(null)}
           openQRScanner={() => setIsQRScannerOpen(true)}
+          openHelpModal={() => setIsHelpModalOpen(true)}
+          onOpenMobileMenu={() => setIsMobileMenuOpen(true)}
           toggleInfoPanel={() => setIsInfoPanelOpen(!isInfoPanelOpen)}
           isInfoPanelOpen={isInfoPanelOpen}
           user={currentUser}
@@ -439,12 +563,14 @@ export const App: React.FC = () => {
             setIsAuthModalOpen(true);
           }}
           onOpenAuth={() => setIsAuthModalOpen(true)}
+          activeFilter={activeFilter}
+          setActiveFilter={setActiveFilter}
         />
 
         {/* Content & Details Split View */}
-        <div className="flex-1 flex overflow-hidden">
-          <main className="flex-1 overflow-y-auto p-6 lg:p-8">
-            <div className="max-w-7xl mx-auto">
+        <div className="flex-1 flex overflow-hidden min-w-0">
+          <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 min-w-0">
+            <div className="max-w-7xl mx-auto w-full">
               {currentTab === 'computers' && (
                 <DeviceRadar
                   devices={devices}
@@ -478,7 +604,14 @@ export const App: React.FC = () => {
                   selectedFile={selectedFile}
                   onShareFile={handleOpenShare}
                   onDeleteFile={handleDeleteFile}
+                  onRestoreFile={handleRestoreFile}
+                  onPermanentDelete={handlePermanentDelete}
+                  onDownloadFile={handleDownloadFile}
+                  onToggleStar={handleToggleStar}
+                  onNavigateHome={() => setCurrentTab('my-drive')}
                   searchQuery={searchQuery}
+                  activeTypeFilter={activeFilter}
+                  setActiveTypeFilter={setActiveFilter}
                 />
               )}
             </div>
@@ -492,12 +625,15 @@ export const App: React.FC = () => {
               file={selectedFile}
               onShare={handleOpenShare}
               onDelete={handleDeleteFile}
+              onDownload={handleDownloadFile}
+              onToggleStar={handleToggleStar}
+              isStarred={selectedFile.isStarred}
             />
           )}
         </div>
       </div>
 
-      {/* Google Drive Bottom-Right Floating Transfer Widget */}
+      {/* Floating Transfer Widget */}
       <TransferWidget
         transfers={transfers}
         onPause={handlePauseTransfer}
@@ -506,7 +642,7 @@ export const App: React.FC = () => {
         onDownload={handleDownloadTransfer}
       />
 
-      {/* Google Drive Share Modal */}
+      {/* Modals */}
       <ShareModal
         isOpen={!!shareFileTarget}
         onClose={() => setShareFileTarget(null)}
@@ -517,7 +653,6 @@ export const App: React.FC = () => {
         isEncrypted={isEncrypted}
       />
 
-      {/* Direct QR Code Generation Modal */}
       <QRCodeModal
         isOpen={isQRModalOpen}
         onClose={() => setIsQRModalOpen(false)}
@@ -526,14 +661,12 @@ export const App: React.FC = () => {
         isEncrypted={isEncrypted}
       />
 
-      {/* Live QR Camera Scanner Modal */}
       <QRScannerModal
         isOpen={isQRScannerOpen}
         onClose={() => setIsQRScannerOpen(false)}
         onScanned={handleQRScanned}
       />
 
-      {/* Upload Modal */}
       <FileDropzoneModal
         isOpen={isUploadModalOpen}
         onClose={() => setIsUploadModalOpen(false)}
@@ -544,7 +677,6 @@ export const App: React.FC = () => {
         isEncrypted={isEncrypted}
       />
 
-      {/* Security & Settings Modal */}
       <EncryptionModal
         isOpen={isEncryptionModalOpen}
         onClose={() => setIsEncryptionModalOpen(false)}
@@ -552,22 +684,27 @@ export const App: React.FC = () => {
         setIsEncrypted={setIsEncrypted}
       />
 
-      {/* Direct Connect QR Modal */}
       <DirectConnectModal
         isOpen={isDirectConnectOpen}
         onClose={() => setIsDirectConnectOpen(false)}
         localIp="127.0.0.1"
       />
 
-      {/* Google-Style Authentication Modal */}
       <AuthModal
         isOpen={isAuthModalOpen}
         canDismiss={currentUser !== null}
         onSuccess={(user) => {
           setCurrentUser(user);
           setIsAuthModalOpen(false);
+          addToast('success', 'Welcome!', `Signed in as ${user.name}`);
         }}
         onClose={() => setIsAuthModalOpen(false)}
+      />
+
+      {/* Help & Support / Documentation / Privacy / Terms Modal */}
+      <HelpSupportModal
+        isOpen={isHelpModalOpen}
+        onClose={() => setIsHelpModalOpen(false)}
       />
     </div>
   );

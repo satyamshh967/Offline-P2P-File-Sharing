@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48">
+  <defs>
+    <linearGradient id="gBlue" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#2563eb" />
+      <stop offset="100%" stop-color="#1d4ed8" />
+    </linearGradient>
+    <linearGradient id="gAmber" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f59e0b" />
+      <stop offset="100%" stop-color="#d97706" />
+    </linearGradient>
+    <linearGradient id="gGreen" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#10b981" />
+      <stop offset="100%" stop-color="#059669" />
+    </linearGradient>
+    <linearGradient id="gRed" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ef4444" />
+      <stop offset="100%" stop-color="#dc2626" />
+    </linearGradient>
+  </defs>
+  <rect width="48" height="48" rx="12" fill="#ffffff"/>
+  <path d="M24 6 C32 6 38 12 38 20 L24 24 Z" fill="url(#gBlue)"/>
+  <path d="M42 24 C42 32 36 38 28 38 L24 24 Z" fill="url(#gGreen)"/>
+  <path d="M24 42 C16 42 10 36 10 28 L24 24 Z" fill="url(#gAmber)"/>
+  <path d="M6 24 C6 16 12 10 20 10 L24 24 Z" fill="url(#gRed)"/>
+  <circle cx="24" cy="24" r="5" fill="#ffffff" stroke="#f1f5f9" stroke-width="1.5"/>
+  <circle cx="24" cy="24" r="2.5" fill="#2563eb"/>
+</svg>

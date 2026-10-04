@@ -85,4 +85,6 @@ export interface SharedFileItem {
   badgeColor: string;
   folderCategory: 'files' | 'images' | 'documents' | 'projects' | 'design' | 'other';
   fileObj?: File;
+  isStarred?: boolean;
+  isDeleted?: boolean;
 }
